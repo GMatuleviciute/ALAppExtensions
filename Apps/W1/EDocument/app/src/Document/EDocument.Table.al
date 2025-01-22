@@ -11,6 +11,7 @@ using System.Automation;
 using System.IO;
 using System.Reflection;
 using System.Threading;
+using Microsoft.eServices.EDocument.Payments;
 
 table 6121 "E-Document"
 {
@@ -182,8 +183,16 @@ table 6121 "E-Document"
             Caption = 'Receiving Company Id';
             ToolTip = 'Specifies the receiving company id, such as PEPPOL id, or other identifiers used in the electronic document exchange.';
         }
-
+        field(32; "Paid Amount"; Decimal)
+        {
+            Caption = 'Paid Amount';
+            Editable = false;
+            FieldClass = FlowField;
+            CalcFormula = sum("E-Document Payment".Amount where("E-Document Entry No." = field("Entry No")));
+            ToolTip = 'Specifies the amount that has already been paid.';
+        }
     }
+
     keys
     {
         key(Key1; "Entry No")

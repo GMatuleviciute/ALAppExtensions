@@ -56,6 +56,14 @@ page 6133 "E-Document Service"
                 {
                     ToolTip = 'Specifies integration code for sent e-document actions.';
                 }
+                field("Payment Integration"; Rec."Payment Integration")
+                {
+                    Visible = false;
+                }
+                field("Calculate Payment VAT"; Rec."Calculate Payment VAT")
+                {
+                    Visible = false;
+                }
                 field("Use Batch Processing"; Rec."Use Batch Processing")
                 {
                     ToolTip = 'Specifies if service uses batch processing for export.';
@@ -174,6 +182,26 @@ page 6133 "E-Document Service"
                         {
                             ToolTip = 'Specifies the number of minutes between running import job.';
                         }
+                    }
+                }
+            }
+            group(Payment)
+            {
+                Caption = 'Payment Settings';
+                Visible = false;
+
+                field("Auto Sync Payments"; Rec."Auto Sync Payments")
+                {
+                }
+                group(PaymentSyncSettings)
+                {
+                    ShowCaption = false;
+                    Visible = Rec."Auto Sync Payments";
+                    field("Payment Sync Start Time"; Rec."Payment Sync Start Time")
+                    {
+                    }
+                    field("Payment Sync Min between runs"; Rec."Payment Sync Min between runs")
+                    {
                     }
                 }
             }
