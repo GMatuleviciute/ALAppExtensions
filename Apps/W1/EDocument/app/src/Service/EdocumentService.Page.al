@@ -95,6 +95,15 @@ page 6133 "E-Document Service"
                     }
                 }
             }
+            group(ExportedParameters)
+            {
+                Caption = 'Exported Parameters';
+                Visible = Rec."Document Format" = Rec."Document Format"::"PEPPOL BIS 3.0";
+
+                field("Embed Invoice PDF to XML"; Rec."Embed Invoice PDF to XML")
+                {
+                }
+            }
             group(ImportParamenters)
             {
                 Caption = 'Imported Parameters';
