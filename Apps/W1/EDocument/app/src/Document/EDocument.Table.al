@@ -182,6 +182,17 @@ table 6121 "E-Document"
             Caption = 'Receiving Company Id';
             ToolTip = 'Specifies the receiving company id, such as PEPPOL id, or other identifiers used in the electronic document exchange.';
         }
+        /// <summary>
+        /// This field is used to determine if the E-document creation was triggered by action requiring the E-document to be sent via email.
+        /// </summary>
+        field(32; "Send E-Document via Email"; Boolean)
+        {
+            Caption = 'Send E-Document via Email';
+            DataClassification = SystemMetadata;
+            Editable = false;
+            AllowInCustomizations = Never;
+            Access = Internal;
+        }
 
     }
     keys
