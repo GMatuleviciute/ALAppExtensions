@@ -217,7 +217,6 @@ codeunit 6134 "E-Doc. Integration Management"
             ErrorCount := EDocumentErrorHelper.ErrorMessageCount(EDocument);
             RunMarkFetched(EDocument, EDocumentService, ReceiveContext.GetTempBlob(), IDocumentReceiver, FetchContextImpl);
             Success := EDocumentErrorHelper.ErrorMessageCount(EDocument) = ErrorCount;
-
             if not Success then
                 exit(false);
         end;
@@ -233,7 +232,6 @@ codeunit 6134 "E-Doc. Integration Management"
 
         exit(true);
     end;
-
 
     #endregion
 
@@ -568,7 +566,6 @@ codeunit 6134 "E-Doc. Integration Management"
 
         exit(true);
     end;
-
 
     #endregion
 
