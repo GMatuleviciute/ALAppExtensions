@@ -6,6 +6,7 @@ namespace Microsoft.eServices.EDocument;
 
 using System.Telemetry;
 using System.Utilities;
+using Microsoft.Foundation.Attachment;
 using Microsoft.eServices.EDocument.Integration.Send;
 using Microsoft.eServices.EDocument.Integration.Receive;
 using Microsoft.eServices.EDocument.Processing.Import;
@@ -13,7 +14,6 @@ using Microsoft.Bank.Reconciliation;
 using Microsoft.eServices.EDocument.OrderMatch;
 using Microsoft.eServices.EDocument.OrderMatch.Copilot;
 using Microsoft.eServices.EDocument.Service;
-using Microsoft.Foundation.Attachment;
 
 page 6121 "E-Document"
 {
@@ -558,6 +558,7 @@ page 6121 "E-Document"
         SetIncomingDocActions();
 
         EDocImport.V1_ProcessEDocPendingOrderMatch(Rec);
+        CurrPage."Attached Documents List".Page.SetBlockUploadAction(true);
     end;
 
     local procedure SetStyle()

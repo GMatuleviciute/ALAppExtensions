@@ -3,6 +3,7 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 // ------------------------------------------------------------------------------------------------
 namespace Microsoft.eServices.EDocument;
+using Microsoft.Foundation.Attachment;
 
 page 6122 "E-Documents"
 {
@@ -55,6 +56,16 @@ page 6122 "E-Documents"
                 }
             }
         }
+        area(factboxes)
+        {
+            part(DocumentListFactBox; "Doc. Attachment List Factbox")
+            {
+                Caption = 'Documents';
+                UpdatePropagation = Both;
+                SubPageLink = "E-Document Entry No." = field("Entry No"),
+                              "E-Document Attachment" = const(true);
+            }
+        }
     }
     actions
     {
@@ -105,6 +116,11 @@ page 6122 "E-Documents"
             actionref(Promoted_ViewFile; ViewFile) { }
         }
     }
+
+    trigger OnAfterGetRecord()
+    begin
+        CurrPage.DocumentListFactBox.Page.SetBlockUploadAction(true);
+    end;
 
     local procedure NewFromFile()
     var
