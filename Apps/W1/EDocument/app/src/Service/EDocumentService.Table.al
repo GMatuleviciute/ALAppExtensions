@@ -266,6 +266,12 @@ table 6103 "E-Document Service"
             ToolTip = 'Specifies if the processing of a document should start automatically after it is imported.';
             DataClassification = SystemMetadata;
         }
+        field(40; "Embed Invoice PDF to XML"; Boolean)
+        {
+            Caption = 'Embed Invoice PDF to XML';
+            ToolTip = 'Specifies whether you want to automatically create a PDF invoice based on Report Selection - Sales, as a background process, and embed it into the E-Document XML file when posting the sales document.';
+            DataClassification = SystemMetadata;
+        }
     }
     keys
     {

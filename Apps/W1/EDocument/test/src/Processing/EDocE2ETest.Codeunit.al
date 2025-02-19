@@ -1397,6 +1397,36 @@ codeunit 139624 "E-Doc E2E Test"
     end;
 
     [Test]
+    procedure GeneratePDFEmbedToXMLSuccess()
+    var
+        EDocument: Record "E-Document";
+        DocumentBlob: Codeunit "Temp Blob";
+        EDocumentLog: Codeunit "E-Document Log";
+    begin
+        // [FEATURE] [E-Document] [Processing] 
+        // [SCENARIO] 
+        Initialize(Enum::"Service Integration"::"Mock");
+        BindSubscription(this.EDocImplState);
+
+        // [GIVEN] EDocument Service is set to embed PDF to XML
+        this.EDocumentService."Embed Invoice PDF to XML" := true;
+        this.EDocumentService."Document Format" := Enum::"E-Document Format"::"PEPPOL BIS 3.0";
+        this.EDocumentService.Modify(false);
+
+        // [GIVEN] Posted Invoice by a Team Member
+        this.LibraryLowerPermission.SetTeamMember();
+        this.LibraryEDoc.PostInvoice(this.Customer);
+
+        // [WHEN] Export EDocument
+        EDocument.FindLast();
+        this.LibraryJobQueue.FindAndRunJobQueueEntryByRecordId(EDocument.RecordId);
+        EDocumentLog.GetDocumentBlobFromLog(EDocument, this.EDocumentService, DocumentBlob, Enum::"E-Document Service Status"::Exported);
+
+        // [THEN] PDF is embedded in the XML
+        CheckPDFEmbedToXML(DocumentBlob);
+    end;
+
+    [Test]
     procedure PostDocumentNoDefaultOrElectronicProfile()
     var
         DocumentSendingProfile: Record "Document Sending Profile";
@@ -1455,6 +1485,20 @@ codeunit 139624 "E-Doc E2E Test"
 
         // [THEN] Delete ok
         PurchaseHeader.Delete();
+    end;
+
+    local procedure CheckPDFEmbedToXML(TempBlob: Codeunit "Temp Blob")
+    var
+        TempXMLBuffer: Record "XML Buffer" temporary;
+        InStream: InStream;
+        FileTxt: Text;
+    begin
+        TempBlob.CreateInStream(InStream);
+
+        TempXMLBuffer.LoadFromStream(InStream);
+
+        TempXMLBuffer.SetRange(Path, '/Invoice/cac:AdditionalDocumentReference/cac:Attachment/cbc:EmbeddedDocumentBinaryObject');
+        Assert.RecordIsNotEmpty(TempXMLBuffer, '');
     end;
 
     [ModalPageHandler]
