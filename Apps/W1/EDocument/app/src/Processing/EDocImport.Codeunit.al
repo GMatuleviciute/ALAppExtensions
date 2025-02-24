@@ -479,6 +479,7 @@ codeunit 6140 "E-Doc. Import"
         GetDocumentBasicInfo(EDocument, EDocService, TempBlob);
 
         if EDocument.IsDuplicate() then begin
+            EDocument.SetHideDialogs(true);
             EDocument.Delete(true);
             DuplicateExists := true;
             exit;
