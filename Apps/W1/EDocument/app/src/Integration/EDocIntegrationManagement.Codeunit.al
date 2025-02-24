@@ -96,7 +96,6 @@ codeunit 6134 "E-Doc. Integration Management"
     var
         EDocument, EDocument2 : Record "E-Document";
         EDocLog: Record "E-Document Log";
-        EDocumentLog: Codeunit "E-Document Log";
         TempBlob: Codeunit "Temp Blob";
         EDocImport: Codeunit "E-Doc. Import";
         EDocErrorHelper: Codeunit "E-Document Error Helper";
@@ -104,7 +103,7 @@ codeunit 6134 "E-Doc. Integration Management"
         HttpResponse: HttpResponseMessage;
         HttpRequest: HttpRequestMessage;
         I, EDocBatchDataStorageEntryNo, EDocCount : Integer;
-        HasErrors, IsCreated, IsProcessed : Boolean;
+        HasErrors, IsCreated, IsProcessed, DuplicateExists : Boolean;
     begin
         EDocIntegration.ReceiveDocument(TempBlob, HttpRequest, HttpResponse);
 
@@ -150,7 +149,7 @@ codeunit 6134 "E-Doc. Integration Management"
             end;
 
             if (not IsProcessed) and EDocService.IsAutomaticProcessingEnabled() then
-                EDocImport.V1_ProcessImportedDocument(EDocument, EDocService, TempBlob);
+                EDocImport.V1_ProcessImportedDocument(EDocument, EDocService, TempBlob, DuplicateExists);
 
             if EDocErrorHelper.HasErrors(EDocument) then begin
                 EDocumentLog.SetFields(EDocument, EDocService);

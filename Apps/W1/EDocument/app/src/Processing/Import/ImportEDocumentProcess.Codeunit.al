@@ -58,7 +58,7 @@ codeunit 6104 "Import E-Document Process"
 
         if ImportProcessVersion = "E-Document Import Process"::"Version 1.0" then begin
             if Step = Step::"Finish draft" then
-                EDocImport.V1_ProcessEDocument(EDocument)
+                EDocImport.V1_ProcessEDocument(EDocument, DuplicateExists)
         end
         else begin
             EDocLog := EDocumentLog.InsertLog(Enum::"E-Document Service Status"::Imported, NewStatus);
@@ -245,13 +245,18 @@ codeunit 6104 "Import E-Document Process"
         end;
     end;
 
+    procedure GetDuplicateExists(): Boolean
+    begin
+        exit(DuplicateExists);
+    end;
+
     var
         EDocument: Record "E-Document";
         EDocImportParameters: Record "E-Doc. Import Parameters";
         EDocumentLog: Codeunit "E-Document Log";
-
         EDocumentProcessing: Codeunit "E-Document Processing";
         Step: Enum "Import E-Document Steps";
         UndoStep: Boolean;
+        DuplicateExists: Boolean;
         UnstructuredBlobTypeWithNoConverterErr: Label 'Cant process E-Document as data type does not have a converter implemented.';
 }

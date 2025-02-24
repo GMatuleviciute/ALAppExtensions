@@ -27,6 +27,7 @@ codeunit 139628 "E-Doc. Receive Test"
         Assert: Codeunit Assert;
         IsInitialized: Boolean;
         NullGuid: Guid;
+        DuplicateMessageTxt: Text[100];
         GetBasicInfoErr: Label 'Test Get Basic Info From Received Document Error.', Locked = true;
         GetCompleteInfoErr: Label 'Test Get Complete Info From Received Document Error.', Locked = true;
 
@@ -1341,6 +1342,7 @@ codeunit 139628 "E-Doc. Receive Test"
     end;
 
     [Test]
+    [HandlerFunctions('DuplicateMessageHandler')]
     procedure ReceiveEDocumentDuplicate()
     var
         EDocService: Record "E-Document Service";
@@ -1375,6 +1377,10 @@ codeunit 139628 "E-Doc. Receive Test"
         EDocument2.SetRange("Document Date", EDocument."Document Date");
         EDocument2.SetFilter("Entry No", '<>%1', EDocument."Entry No");
         Assert.IsTrue(EDocument2.IsEmpty(), 'Duplicate E-Document created.');
+        Assert.AreEqual(
+            'Some E-documents were not imported because they already exist in the system.',
+            DuplicateMessageTxt,
+            'Duplicate message not shown.');
     end;
 
     [ModalPageHandler]
@@ -1416,6 +1422,12 @@ codeunit 139628 "E-Doc. Receive Test"
     [StrMenuHandler]
     procedure MenuHandler(Options: Text[1024]; var Choice: Integer; Instruction: Text[1024])
     begin
+    end;
+
+    [MessageHandler]
+    procedure DuplicateMessageHandler(Message: Text[1024])
+    begin
+        DuplicateMessageTxt := Message;
     end;
 
     local procedure Initialize()

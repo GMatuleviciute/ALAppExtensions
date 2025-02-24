@@ -15,8 +15,9 @@ codeunit 6147 "E-Document Import Job"
     var
         EDocumentService: Record "E-Document Service";
         EDocImport: Codeunit "E-Doc. Import";
+        DuplicateExists: Boolean;
     begin
         EDocumentService.Get(Rec."Record ID to Process");
-        EDocImport.ReceiveAndProcessAutomatically(EDocumentService);
+        EDocImport.ReceiveAndProcessAutomatically(EDocumentService, DuplicateExists);
     end;
 }
