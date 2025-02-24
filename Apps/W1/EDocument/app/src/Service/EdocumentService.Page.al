@@ -323,6 +323,7 @@ page 6133 "E-Document Service"
     var
         ServiceIntegrationSetupMsg: Label 'There is no configuration setup for this service integration.';
         DocNotCreatedQst: Label 'Failed to create new Purchase %1 from E-Document. Do you want to open E-Document to see reported errors?', Comment = '%1 - Purchase Document Type';
+        EDocsAlreadyExistMsg: Label 'Some E-documents were not imported because they already exist in the system.';
         LegacyIntegrationVisible: Boolean;
 
 
@@ -375,8 +376,13 @@ page 6133 "E-Document Service"
         FailedEDocument: Record "E-Document";
         EDocImport: Codeunit "E-Doc. Import";
         Success: Boolean;
+        DuplicateExists: Boolean;
     begin
-        Success := EDocImport.ReceiveAndProcessAutomatically(Rec);
+        Success := EDocImport.ReceiveAndProcessAutomatically(Rec, DuplicateExists);
+
+        if DuplicateExists then
+            Message(EDocsAlreadyExistMsg);
+
         if not Success then
             if FailedEDocument.Get(Rec.LastEDocumentLog("E-Document Service Status"::"Imported Document Processing Error")."E-Doc. Entry No") then
                 if Confirm(DocNotCreatedQst, true, FailedEDocument."Document Type") then

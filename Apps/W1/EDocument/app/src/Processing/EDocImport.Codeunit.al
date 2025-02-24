@@ -23,7 +23,7 @@ codeunit 6140 "E-Doc. Import"
         tabledata "E-Document" = im,
         tabledata "E-Doc. Imported Line" = imd;
 
-    procedure ReceiveAndProcessAutomatically(EDocumentService: Record "E-Document Service"): Boolean
+    procedure ReceiveAndProcessAutomatically(EDocumentService: Record "E-Document Service"; var DuplicateExists: Boolean): Boolean
     var
         EDocumentServiceStatus: Record "E-Document Service Status";
         EDocImportParameters: Record "E-Doc. Import Parameters";
@@ -47,17 +47,23 @@ codeunit 6140 "E-Doc. Import"
         if EDocumentServiceStatus.FindSet() then
             repeat
                 EDocument.Get(EDocumentServiceStatus."E-Document Entry No");
-                AllEDocumentsProcessed := AllEDocumentsProcessed and ProcessIncomingEDocument(EDocument, EDocumentService, EDocImportParameters);
+                AllEDocumentsProcessed := AllEDocumentsProcessed and ProcessIncomingEDocument(EDocument, EDocumentService, EDocImportParameters, DuplicateExists);
             until EDocumentServiceStatus.Next() = 0;
         exit(AllEDocumentsProcessed);
     end;
 
     procedure ProcessIncomingEDocument(EDocument: Record "E-Document"; EDocImportParameters: Record "E-Doc. Import Parameters"): Boolean
+    var
+        DuplicateExists: Boolean;
     begin
-        exit(ProcessIncomingEDocument(EDocument, EDocument.GetEDocumentService(), EDocImportParameters));
+        exit(ProcessIncomingEDocument(EDocument, EDocument.GetEDocumentService(), EDocImportParameters, DuplicateExists));
     end;
 
-    internal procedure ProcessIncomingEDocument(EDocument: Record "E-Document"; EDocumentService: Record "E-Document Service"; EDocImportParameters: Record "E-Doc. Import Parameters"): Boolean
+    internal procedure ProcessIncomingEDocument(
+        EDocument: Record "E-Document";
+        EDocumentService: Record "E-Document Service";
+        EDocImportParameters: Record "E-Doc. Import Parameters";
+        var DuplicateExists: Boolean): Boolean
     var
         ImportEDocumentProcess: Codeunit "Import E-Document Process";
         PreviousStatus, CurrentStatus, DesiredStatus : Enum "Import E-Doc. Proc. Status";
@@ -88,7 +94,9 @@ codeunit 6140 "E-Doc. Import"
                 StepToDo := ImportEDocumentProcess.GetNextStep(ImportEDocumentProcess.IndexToStatus(StatusIndex));
                 ImportEDocumentProcess.ConfigureImportRun(EDocument, StepToDo, EDocImportParameters, false);
                 if not RunConfiguredImportStep(ImportEDocumentProcess, EDocument) then
-                    exit(false)
+                    exit(false);
+                if StepToDo = StepToDo::"Finish draft" then
+                    DuplicateExists := ImportEDocumentProcess.GetDuplicateExists();
             end;
         exit(true);
     end;
@@ -208,12 +216,12 @@ codeunit 6140 "E-Doc. Import"
             EDocAttachmentProcessor.DeleteAll(EDocument, RecordRef);
     end;
 
-    internal procedure V1_ProcessEDocument(EDocument: Record "E-Document")
+    internal procedure V1_ProcessEDocument(EDocument: Record "E-Document"; var DuplicateExists: Boolean)
     begin
-        V1_ProcessEDocument(EDocument, EDocument.GetEDocumentService()."Create Journal Lines");
+        V1_ProcessEDocument(EDocument, EDocument.GetEDocumentService()."Create Journal Lines", DuplicateExists);
     end;
 
-    internal procedure V1_ProcessEDocument(var EDocument: Record "E-Document"; CreateJnlLine: Boolean)
+    internal procedure V1_ProcessEDocument(var EDocument: Record "E-Document"; CreateJnlLine: Boolean; var DuplicateExists: Boolean)
     var
         EDocService: Record "E-Document Service";
         TempBlob: Codeunit "Temp Blob";
@@ -227,12 +235,11 @@ codeunit 6140 "E-Doc. Import"
         EDocService := EDocument.GetEDocumentService();
         EDocumentLog.GetDocumentBlobFromLog(EDocument, EDocService, TempBlob, Enum::"E-Document Service Status"::Imported);
 
-        V1_ProcessImportedDocument(EDocument, EDocService, TempBlob);
+        V1_ProcessImportedDocument(EDocument, EDocService, TempBlob, DuplicateExists);
     end;
 
     local procedure GetDocumentBasicInfo(var EDocument: Record "E-Document"; EDocService: Record "E-Document Service"; var TempBlob: Codeunit "Temp Blob")
     var
-        EDocument2: Record "E-Document";
         EDocGetBasicInfo: Codeunit "E-Doc. Get Basic Info";
         EDocumentInterface: Interface "E-Document";
     begin
@@ -242,12 +249,6 @@ codeunit 6140 "E-Doc. Import"
         EDocGetBasicInfo.SetValues(EDocumentInterface, EDocument, TempBlob);
         if EDocGetBasicInfo.Run() then begin
             EDocGetBasicInfo.GetValues(EDocumentInterface, EDocument, TempBlob);
-
-            EDocument2.SetRange("Incoming E-Document No.", EDocument."Incoming E-Document No.");
-            EDocument2.SetRange("Bill-to/Pay-to No.", EDocument."Bill-to/Pay-to No.");
-            EDocument2.SetFilter("Entry No", '<>%1', EDocument."Entry No");
-            if EDocument2.FindFirst() then
-                EDocErrorHelper.LogWarningMessage(EDocument, EDocument2, EDocument2.FieldNo("Incoming E-Document No."), DocAlreadyExistsMsg);
 
             if EDocService."Validate Receiving Company" then
                 EDocImportHelper.ValidateReceivingCompanyInfo(EDocument);
@@ -264,6 +265,7 @@ codeunit 6140 "E-Doc. Import"
         PurchaseHeader: Record "Purchase Header";
         DocumentHeader: RecordRef;
         NullGuid: Guid;
+        DuplicateExists: Boolean;
     begin
         if EDocument.Status = Enum::"E-Document Status"::Processed then
             exit;
@@ -284,7 +286,7 @@ codeunit 6140 "E-Doc. Import"
         EDocument."Document Type" := EDocument."Document Type"::None;
         EDocument.Modify();
 
-        V1_ProcessEDocument(EDocument, false);
+        V1_ProcessEDocument(EDocument, false, DuplicateExists);
     end;
 
     local procedure ProcessExistingOrder(var EDocument: Record "E-Document"; EDocService: Record "E-Document Service"; var SourceDocumentLine: RecordRef; var DocumentHeader: RecordRef; var EDocServiceStatus: Enum "E-Document Service Status")
@@ -453,7 +455,11 @@ codeunit 6140 "E-Doc. Import"
         EDocument.Modify();
     end;
 
-    internal procedure V1_ProcessImportedDocument(var EDocument: Record "E-Document"; var EDocService: Record "E-Document Service"; var TempBlob: Codeunit "Temp Blob")
+    internal procedure V1_ProcessImportedDocument(
+        var EDocument: Record "E-Document";
+        var EDocService: Record "E-Document Service";
+        var TempBlob: Codeunit "Temp Blob";
+        var DuplicateExists: Boolean)
     var
         EDocLog: Record "E-Document Log";
         TempEDocMapping: Record "E-Doc. Mapping" temporary;
@@ -471,6 +477,14 @@ codeunit 6140 "E-Doc. Import"
         EDocErrorHelper.ClearErrorMessages(EDocument);
 
         GetDocumentBasicInfo(EDocument, EDocService, TempBlob);
+
+        if EDocument.IsDuplicate() then begin
+            EDocument.SetHideDialogs(true);
+            EDocument.Delete(true);
+            DuplicateExists := true;
+            exit;
+        end;
+
         if EDocErrorHelper.HasErrors(EDocument) then begin
             EDocServiceStatus := Enum::"E-Document Service Status"::"Imported document processing error";
             EDocumentLog.InsertLog(EDocument, EDocService, EDocServiceStatus);
@@ -478,6 +492,7 @@ codeunit 6140 "E-Doc. Import"
             EDocumentProcessing.ModifyEDocumentStatus(EDocument, EDocServiceStatus);
             exit;
         end;
+
 
         ParseDocumentLines(EDocument, EDocService, TempBlob, SourceDocumentHeader, SourceDocumentLine, TempEDocMapping);
         if EDocErrorHelper.HasErrors(EDocument) then begin
@@ -788,7 +803,6 @@ codeunit 6140 "E-Doc. Import"
         DocCreateMsg: Label 'Creating Purchase %1', Comment = '%1 - Document type';
         DocLinkMsg: Label 'Linking to existing order';
         DocCreatePOMsg: Label 'Creating Purchase Order';
-        DocAlreadyExistsMsg: Label 'The document already exists.';
         DocTypeIsNotSupportedErr: Label 'Document type %1 is not supported.', Comment = '%1 - Document Type';
         FailedToFindVendorErr: Label 'No vendor is set for Edocument';
         CannotProcessEDocumentMsg: Label 'Cannot process E-Document %1 with Purchase Order %2 before Purchase Order has been matched and posted for E-Document %3.', Comment = '%1 - E-Document entry no, %2 - Purchase Order number, %3 - EDocument entry no.';
