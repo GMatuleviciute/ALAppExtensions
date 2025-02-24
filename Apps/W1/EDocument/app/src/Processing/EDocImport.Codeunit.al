@@ -47,8 +47,7 @@ codeunit 6140 "E-Doc. Import"
         if EDocumentServiceStatus.FindSet() then
             repeat
                 EDocument.Get(EDocumentServiceStatus."E-Document Entry No");
-                AllEDocumentsProcessed :=
-                    AllEDocumentsProcessed and ProcessIncomingEDocument(EDocument, EDocumentService, EDocImportParameters, DuplicateExists);
+                AllEDocumentsProcessed := AllEDocumentsProcessed and ProcessIncomingEDocument(EDocument, EDocumentService, EDocImportParameters, DuplicateExists);
             until EDocumentServiceStatus.Next() = 0;
         exit(AllEDocumentsProcessed);
     end;
