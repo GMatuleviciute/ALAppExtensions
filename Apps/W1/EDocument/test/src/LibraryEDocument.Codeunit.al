@@ -18,6 +18,7 @@ codeunit 139629 "Library - E-Document"
         LibraryInvt: Codeunit "Library - Inventory";
         LibraryJobQueue: Codeunit "Library - Job Queue";
         LibraryVariableStorage: Codeunit "Library - Variable Storage";
+        LibraryFinChargeMemo: Codeunit "Library - Finance Charge Memo";
 
     procedure SetupStandardVAT()
     begin
@@ -50,7 +51,6 @@ codeunit 139629 "Library - E-Document"
 
     procedure SetupStandardSalesScenario(var Customer: Record Customer; var EDocService: Record "E-Document Service")
     var
-        CountryRegion: Record "Country/Region";
         DocumentSendingProfile: Record "Document Sending Profile";
         SalesSetup: Record "Sales & Receivables Setup";
         WorkflowSetup: Codeunit "Workflow Setup";
@@ -66,17 +66,7 @@ codeunit 139629 "Library - E-Document"
         DocumentSendingProfile.Modify();
 
         // Create Customer for sales scenario
-        LibrarySales.CreateCustomer(Customer);
-        LibraryERM.FindCountryRegion(CountryRegion);
-        Customer.Validate(Address, LibraryUtility.GenerateRandomCode(Customer.FieldNo(Address), DATABASE::Customer));
-        Customer.Validate("Country/Region Code", CountryRegion.Code);
-        Customer.Validate(City, LibraryUtility.GenerateRandomCode(Customer.FieldNo(City), DATABASE::Customer));
-        Customer.Validate("Post Code", LibraryUtility.GenerateRandomCode(Customer.FieldNo("Post Code"), DATABASE::Customer));
-        Customer.Validate("VAT Bus. Posting Group", VATPostingSetup."VAT Bus. Posting Group");
-        Customer."VAT Registration No." := LibraryERM.GenerateVATRegistrationNo(CountryRegion.Code);
-        Customer.Validate(GLN, '1234567890128');
-        Customer."Document Sending Profile" := DocumentSendingProfile.Code;
-        Customer.Modify(true);
+        CreateCustomerForSalesScenario(Customer, DocumentSendingProfile.Code);
 
         // Create Item 
         if StandardItem."No." = '' then begin
@@ -350,6 +340,86 @@ codeunit 139629 "Library - E-Document"
         SalesInvHeader.Get(LibrarySales.PostSalesDocument(SalesHeader, true, true));
     end;
 
+    procedure CreateReminderWithLine(Customer: Record Customer; var ReminderHeader: Record "Reminder Header")
+    var
+        ReminderLine: Record "Reminder Line";
+    begin
+        this.LibraryERM.CreateReminderHeader(ReminderHeader);
+        ReminderHeader.Validate("Customer No.", Customer."No.");
+        ReminderHeader."Your Reference" := this.LibraryRandom.RandText(35);
+        ReminderHeader.Modify(false);
+
+        this.LibraryERM.CreateReminderLine(ReminderLine, ReminderHeader."No.", Enum::"Reminder Source Type"::"G/L Account");
+        ReminderLine.Validate("Remaining Amount", this.LibraryRandom.RandInt(100));
+        ReminderLine.Description := this.LibraryRandom.RandText(100);
+        ReminderLine.Modify(false);
+    end;
+
+    procedure CreateFinChargeMemoWithLine(Customer: Record Customer; var FinChargeMemoHeader: Record "Finance Charge Memo Header")
+    var
+        FinChargeMemoLine: Record "Finance Charge Memo Line";
+        FinanceChargeTerms: Record "Finance Charge Terms";
+    begin
+        this.LibraryERM.CreateFinanceChargeMemoHeader(FinChargeMemoHeader, Customer."No.");
+        this.LibraryFinChargeMemo.CreateFinanceChargeTermAndText(FinanceChargeTerms);
+        FinChargeMemoHeader.Validate("Fin. Charge Terms Code", FinanceChargeTerms.Code);
+        FinChargeMemoHeader."Your Reference" := this.LibraryRandom.RandText(35);
+        FinChargeMemoHeader.Modify(false);
+
+        this.LibraryERM.CreateFinanceChargeMemoLine(FinChargeMemoLine, FinChargeMemoHeader."No.", FinChargeMemoLine.Type::"G/L Account");
+        FinChargeMemoLine.Validate("Remaining Amount", this.LibraryRandom.RandInt(100));
+        FinChargeMemoLine.Description := this.LibraryRandom.RandText(100);
+        FinChargeMemoLine.Modify(false);
+    end;
+
+    procedure IssueReminder(Customer: Record Customer) IssuedReminderHeader: Record "Issued Reminder Header"
+    var
+        ReminderHeader: Record "Reminder Header";
+        ReminderIssue: Codeunit "Reminder-Issue";
+    begin
+        this.CreateReminderWithLine(Customer, ReminderHeader);
+
+        ReminderHeader.SetRange("No.", ReminderHeader."No.");
+        ReminderIssue.Set(ReminderHeader, false, 0D);
+        ReminderIssue.Run();
+
+        ReminderIssue.GetIssuedReminder(IssuedReminderHeader);
+    end;
+
+    procedure IssueFinChargeMemo(Customer: Record Customer) IssuedFinChargeMemoHeader: Record "Issued Fin. Charge Memo Header"
+    var
+        FinChargeMemoHeader: Record "Finance Charge Memo Header";
+        FinChargeMemoIssue: Codeunit "FinChrgMemo-Issue";
+    begin
+        this.CreateFinChargeMemoWithLine(Customer, FinChargeMemoHeader);
+
+        FinChargeMemoHeader.SetRange("No.", FinChargeMemoHeader."No.");
+        FinChargeMemoIssue.Set(FinChargeMemoHeader, false, 0D);
+        FinChargeMemoIssue.Run();
+
+        FinChargeMemoIssue.GetIssuedFinChrgMemo(IssuedFinChargeMemoHeader);
+    end;
+
+    procedure SetupReminderNoSeries()
+    var
+        SalesSetup: Record "Sales & Receivables Setup";
+    begin
+        SalesSetup.Get();
+        SalesSetup.Validate("Reminder Nos.", this.LibraryERM.CreateNoSeriesCode());
+        SalesSetup.Validate("Issued Reminder Nos.", this.LibraryERM.CreateNoSeriesCode());
+        SalesSetup.Modify(false);
+    end;
+
+    procedure SetupFinChargeMemoNoSeries()
+    var
+        SalesSetup: Record "Sales & Receivables Setup";
+    begin
+        SalesSetup.Get();
+        SalesSetup.Validate("Fin. Chrg. Memo Nos.", this.LibraryERM.CreateNoSeriesCode());
+        SalesSetup.Validate("Issued Fin. Chrg. M. Nos.", this.LibraryERM.CreateNoSeriesCode());
+        SalesSetup.Modify(false);
+    end;
+
     procedure Initialize()
     var
         DocumentSendingProfile: Record "Document Sending Profile";
@@ -548,6 +618,23 @@ codeunit 139629 "Library - E-Document"
         EntityName := LibraryUtility.GenerateGUID();
         LibraryWorkflow.CreateDynamicRequestPageEntity(EntityName, TableID, RelatedTable);
         exit(EntityName);
+    end;
+
+    procedure CreateCustomerForSalesScenario(var Customer: Record Customer; DocumentSendingProfileCode: Code[20])
+    var
+        CountryRegion: Record "Country/Region";
+    begin
+        LibrarySales.CreateCustomer(Customer);
+        LibraryERM.FindCountryRegion(CountryRegion);
+        Customer.Validate(Address, LibraryUtility.GenerateRandomCode(Customer.FieldNo(Address), DATABASE::Customer));
+        Customer.Validate("Country/Region Code", CountryRegion.Code);
+        Customer.Validate(City, LibraryUtility.GenerateRandomCode(Customer.FieldNo(City), DATABASE::Customer));
+        Customer.Validate("Post Code", LibraryUtility.GenerateRandomCode(Customer.FieldNo("Post Code"), DATABASE::Customer));
+        Customer.Validate("VAT Bus. Posting Group", VATPostingSetup."VAT Bus. Posting Group");
+        Customer."VAT Registration No." := LibraryERM.GenerateVATRegistrationNo(CountryRegion.Code);
+        Customer.Validate(GLN, '1234567890128');
+        Customer."Document Sending Profile" := DocumentSendingProfileCode;
+        Customer.Modify(true);
     end;
 
 #if not CLEAN26
