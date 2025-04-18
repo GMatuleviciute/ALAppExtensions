@@ -19,6 +19,8 @@ using Microsoft.Service.Document;
 using Microsoft.Service.History;
 using System.Reflection;
 using Microsoft.eServices.EDocument.Processing.Import;
+using Microsoft.Inventory.Location;
+using Microsoft.Inventory.Transfer;
 
 codeunit 6108 "E-Document Processing"
 {
@@ -125,6 +127,10 @@ codeunit 6108 "E-Document Processing"
 
             Database::"Purchase Header", Database::"Purch. Inv. Header", Database::"Purch. Cr. Memo Hdr.":
                 exit(GetDocSendingProfileForCustVend('', RecRef.Field(PurchaseHeader.FieldNo("Pay-to Vendor No.")).Value));
+            Database::"Transfer Shipment Header":
+                exit(GetDocSendingProfileForTransferShipment());
+            else
+                exit(GetDocSendingProfileForCustVend('', ''));
         end;
     end;
 
@@ -169,6 +175,11 @@ codeunit 6108 "E-Document Processing"
             EDocument."Document Type"::"Issued Reminder":
                 begin
                     SourceDocumentLines.Open(Database::"Issued Reminder Line");
+                    SourceDocumentLines.Field(1).SetRange(EDocument."Document No.");
+                end;
+            EDocument."Document Type"::"Transfer Shipment":
+                begin
+                    SourceDocumentLines.Open(Database::"Transfer Shipment Line");
                     SourceDocumentLines.Field(1).SetRange(EDocument."Document No.");
                 end;
         end;
@@ -321,6 +332,35 @@ codeunit 6108 "E-Document Processing"
         DocumentSendingProfile.SetRange(Default, true);
         if DocumentSendingProfile.FindFirst() then
             exit(true);
+    end;
+
+    /// <summary>
+    /// Get the document sending profile for transfer shipment.
+    /// </summary>
+    /// <param name="Return value: DocumentSendingProfile"></param>
+    /// <returns>Boolean value = True if Document sending profile was found</returns>
+    internal procedure GetDocSendingProfileForTransferShipment(var DocumentSendingProfile: Record "Document Sending Profile"): Boolean
+    begin
+        DocumentSendingProfile := GetDocSendingProfileForTransferShipment();
+        if not DocumentSendingProfile.IsEmpty() then
+            exit(true);
+    end;
+
+    /// <summary>
+    /// Get the document sending profile for transfer shipment.
+    /// </summary>
+    /// <returns>DocumentSendingProfile "Document Sending Profile" Record</returns>
+    internal procedure GetDocSendingProfileForTransferShipment() DocumentSendingProfile: Record "Document Sending Profile"
+    begin
+        DocumentSendingProfile.SetRange("Transfer Shipment Profile", true);
+        if DocumentSendingProfile.FindFirst() then
+            exit(DocumentSendingProfile);
+
+        DocumentSendingProfile.SetRange("Transfer Shipment Profile");
+
+        DocumentSendingProfile.SetRange(Default, true);
+        if DocumentSendingProfile.FindFirst() then
+            exit(DocumentSendingProfile);
     end;
 
     local procedure GetPostedRecord(var EDocument: Record "E-Document"; var RelatedRecord: Variant): Boolean
