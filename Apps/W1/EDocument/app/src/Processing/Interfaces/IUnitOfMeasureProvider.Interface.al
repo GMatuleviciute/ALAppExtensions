@@ -5,6 +5,7 @@
 namespace Microsoft.eServices.EDocument.Processing.Interfaces;
 
 using Microsoft.eServices.EDocument;
+using Microsoft.Purchases.Document;
 using Microsoft.Foundation.UOM;
 
 /// <summary>
@@ -20,4 +21,6 @@ interface IUnitOfMeasureProvider
     /// <param name="ExternalUnitOfMeasure">The external unit of measure reference.</param>
     /// <returns>A Unit of Measure record corresponding to the provided details.</returns>
     procedure GetUnitOfMeasure(EDocument: Record "E-Document"; EDocumentLineId: Integer; ExternalUnitOfMeasure: Text): Record "Unit of Measure";
+    
+    procedure GetDefaultUnitOfMeasure(PurchaseLineType: Enum "Purchase Line Type"; PurchaseLineTypeNo: Code[20]) UnitOfMeasureCode: Code[20];
 }

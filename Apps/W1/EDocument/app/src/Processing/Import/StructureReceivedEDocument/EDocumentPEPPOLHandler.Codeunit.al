@@ -200,7 +200,14 @@ codeunit 6173 "E-Document PEPPOL Handler" implements IStructuredFormatReader
     end;
 
     procedure View(EDocument: Record "E-Document"; TempBlob: Codeunit "Temp Blob")
+    var
+        EDocPurchaseHeader: Record "E-Document Purchase Header";
+        EDocPurchaseLine: Record "E-Document Purchase Line";
+        EDocReadablePurchaseDoc: Page "E-Doc. Readable Purchase Doc.";
     begin
-        Error('A view is not implemented for this handler.');
+        EDocPurchaseHeader.GetFromEDocument(EDocument);
+        EDocPurchaseLine.SetRange("E-Document Entry No.", EDocPurchaseHeader."E-Document Entry No.");
+        EDocReadablePurchaseDoc.SetBuffer(EDocPurchaseHeader, EDocPurchaseLine);
+        EDocReadablePurchaseDoc.Run();
     end;
 }
