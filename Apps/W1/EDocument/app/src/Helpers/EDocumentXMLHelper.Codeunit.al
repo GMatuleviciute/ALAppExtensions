@@ -20,6 +20,7 @@ codeunit 6127 "EDocument XML Helper"
 
         GLSetup.Get();
 
+        #pragma warning disable AA0139 // false positive
         if XMLNode.IsXmlElement() then begin
             CurrencyCode := CopyStr(XMLNode.AsXmlElement().InnerText(), 1, MaxLength);
             if GLSetup."LCY Code" <> CurrencyCode then
@@ -33,6 +34,7 @@ codeunit 6127 "EDocument XML Helper"
                 CurrencyField := CurrencyCode;
             exit;
         end;
+        #pragma warning restore AA0139
     end;
 
     internal procedure SetStringValueInField(XMLDocument: XmlDocument; XMLNamespaces: XmlNamespaceManager; Path: Text; MaxLength: Integer; var Field: Text)
