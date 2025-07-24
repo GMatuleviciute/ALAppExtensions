@@ -80,8 +80,11 @@ codeunit 6117 "E-Doc. Create Purchase Invoice" implements IEDocumentFinishDraft,
         EDocumentPurchaseLine: Record "E-Document Purchase Line";
         PurchaseLine: Record "Purchase Line";
         EDocumentPurchaseHistMapping: Codeunit "E-Doc. Purchase Hist. Mapping";
+        DimensionManagement: Codeunit DimensionManagement;
+        PurchaseLineCombinedDimensions: array[10] of Integer;
         StopCreatingPurchaseInvoice: Boolean;
         VendorInvoiceNo: Code[35];
+        GlobalDim1, GlobalDim2 : Code[20];
     begin
         EDocumentPurchaseHeader.GetFromEDocument(EDocument);
         if not AllDraftLinesHaveTypeAndNumberSpecificed(EDocumentPurchaseHeader) then begin
@@ -90,8 +93,8 @@ codeunit 6117 "E-Doc. Create Purchase Invoice" implements IEDocumentFinishDraft,
         end;
         EDocumentPurchaseHeader.TestField("E-Document Entry No.");
         PurchaseHeader.SetRange("Buy-from Vendor No.", EDocumentPurchaseHeader."[BC] Vendor No."); // Setting the filter, so that the insert trigger assigns the right vendor to the purchase header
-        PurchaseHeader."Document Type" := "Purchase Document Type"::Invoice;
-        PurchaseHeader."Pay-to Vendor No." := EDocumentPurchaseHeader."[BC] Vendor No.";
+        PurchaseHeader.Validate("Document Type", "Purchase Document Type"::Invoice);
+        PurchaseHeader.Validate("Buy-from Vendor No.", EDocumentPurchaseHeader."[BC] Vendor No.");
 
         VendorInvoiceNo := CopyStr(EDocumentPurchaseHeader."Sales Invoice No.", 1, MaxStrLen(PurchaseHeader."Vendor Invoice No."));
         VendorLedgerEntry.SetLoadFields("Entry No.");
@@ -103,6 +106,7 @@ codeunit 6117 "E-Doc. Create Purchase Invoice" implements IEDocumentFinishDraft,
         end;
 
         PurchaseHeader.Validate("Vendor Invoice No.", VendorInvoiceNo);
+        PurchaseHeader.Validate("Vendor Order No.", EDocumentPurchaseHeader."Purchase Order No.");
         PurchaseHeader.Insert(true);
 
         if EDocumentPurchaseHeader."Document Date" <> 0D then
@@ -142,7 +146,11 @@ codeunit 6117 "E-Doc. Create Purchase Invoice" implements IEDocumentFinishDraft,
                 if EDocumentPurchaseLine."Total Discount" > 0 then
                     PurchaseLine.Validate("Line Discount Amount", EDocumentPurchaseLine."Total Discount");
                 PurchaseLine.Validate("Deferral Code", EDocumentPurchaseLine."[BC] Deferral Code");
-                PurchaseLine.Validate("Dimension Set ID", EDocumentPurchaseLine."[BC] Dimension Set ID");
+
+                Clear(PurchaseLineCombinedDimensions);
+                PurchaseLineCombinedDimensions[1] := PurchaseLine."Dimension Set ID";
+                PurchaseLineCombinedDimensions[2] := EDocumentPurchaseLine."[BC] Dimension Set ID";
+                PurchaseLine.Validate("Dimension Set ID", DimensionManagement.GetCombinedDimensionSetID(PurchaseLineCombinedDimensions, GlobalDim1, GlobalDim2));
                 PurchaseLine.Validate("Shortcut Dimension 1 Code", EDocumentPurchaseLine."[BC] Shortcut Dimension 1 Code");
                 PurchaseLine.Validate("Shortcut Dimension 2 Code", EDocumentPurchaseLine."[BC] Shortcut Dimension 2 Code");
                 EDocumentPurchaseHistMapping.ApplyHistoryValuesToPurchaseLine(EDocumentPurchaseLine, PurchaseLine);
