@@ -28,6 +28,12 @@ codeunit 6108 "E-Document Processing"
     Permissions = tabledata "E-Document Service Status" = rim,
                 tabledata "E-Document" = m;
 
+    var
+        RelatedRecordCaptionWithDashTxt: Label '%1 - %2', Comment = '%1 - Record Text, %2 - Record Caption', Locked = true;
+        EDocTelemetryCategoryLbl: Label 'E-Document', Locked = true;
+        EDocTelemetryIdLbl: Label 'E-Doc %1', Locked = true;
+        EDocTok: Label 'W1 E-Document', Locked = true;
+
     /// <summary>
     /// Inserts E-Document Service Status record. Throws runtime error if record does exists.
     /// </summary>
@@ -39,6 +45,8 @@ codeunit 6108 "E-Document Processing"
         EDocumentServiceStatus.Validate("E-Document Service Code", EDocumentService.Code);
         EDocumentServiceStatus.Validate(Status, EDocumentStatus);
         EDocumentServiceStatus.Insert();
+
+        OnAfterModifyServiceStatus(EDocument, EDocumentService, EDocumentServiceStatus);
     end;
 
     /// <summary>
@@ -52,6 +60,8 @@ codeunit 6108 "E-Document Processing"
         EDocumentServiceStatus.Get(EDocument."Entry No", EDocumentService.Code);
         EDocumentServiceStatus.Validate(Status, EDocumentStatus);
         EDocumentServiceStatus.Modify();
+
+        OnAfterModifyServiceStatus(EDocument, EDocumentService, EDocumentServiceStatus);
     end;
 
     /// <summary>
@@ -99,6 +109,8 @@ codeunit 6108 "E-Document Processing"
         else
             EDocument.Validate(Status, EDocument.Status::Processed);
         EDocument.Modify(true);
+
+        OnAfterModifyEDocumentStatus(EDocument, EDocumentServiceStatus);
     end;
 
     procedure ModifyEDocumentProcessingStatus(EDocument: Record "E-Document"; NewStatus: Enum "Import E-Doc. Proc. Status")
@@ -490,9 +502,14 @@ codeunit 6108 "E-Document Processing"
         exit(RecCaption);
     end;
 
-    var
-        RelatedRecordCaptionWithDashTxt: Label '%1 - %2', Comment = '%1 - Record Text, %2 - Record Caption', Locked = true;
-        EDocTelemetryCategoryLbl: Label 'E-Document', Locked = true;
-        EDocTelemetryIdLbl: Label 'E-Doc %1', Locked = true;
-        EDocTok: Label 'W1 E-Document', Locked = true;
+
+    [InternalEvent(false, false)]
+    local procedure OnAfterModifyEDocumentStatus(var EDocument: Record "E-Document"; var EDocumentServiceStatus: Record "E-Document Service Status")
+    begin
+    end;
+
+    [InternalEvent(false, false)]
+    local procedure OnAfterModifyServiceStatus(var EDocument: Record "E-Document"; var EDocumentService: Record "E-Document Service"; var EDocumentServiceStatus: Record "E-Document Service Status")
+    begin
+    end;
 }
