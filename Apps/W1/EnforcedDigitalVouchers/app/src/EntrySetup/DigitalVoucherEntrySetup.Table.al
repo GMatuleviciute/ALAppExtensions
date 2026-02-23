@@ -21,9 +21,26 @@ table 5579 "Digital Voucher Entry Setup"
         }
         field(2; "Check Type"; Enum "Digital Voucher Check Type")
         {
+            trigger OnValidate()
+            var
+                CheckTypeRequiresSalesOrPurchaseErr: Label '%1 %2 requires %3 to be %4 or %5.', Comment = '%1 - check type field caption, %2 - check type value, %3 - entry type field caption, %4 - entry type value, %5 - entry type value';
+            begin
+                if "Check Type" = "Check Type"::"E-Document" then begin
+                    if not ("Entry Type" in ["Entry Type"::"Sales Document", "Entry Type"::"Purchase Document"]) then
+                        Error(CheckTypeRequiresSalesOrPurchaseErr, FieldCaption("Check Type"), "Check Type"::"E-Document", FieldCaption("Entry Type"), "Entry Type"::"Sales Document", "Entry Type"::"Purchase Document");
+                    "Generate Automatically" := true;
+                end;
+            end;
         }
         field(3; "Generate Automatically"; Boolean)
         {
+            trigger OnValidate()
+            var
+                GenerateAutoMustBeEnabledErr: Label 'Generate Automatically must be enabled when %1 is %2.', Comment = '%1 - check type field caption, %2 - check type value';
+            begin
+                if ("Check Type" = "Check Type"::"E-Document") and (not "Generate Automatically") then
+                    Error(GenerateAutoMustBeEnabledErr, FieldCaption("Check Type"), "Check Type"::"E-Document");
+            end;
         }
         field(4; "Skip If Manually Added"; Boolean)
         {
