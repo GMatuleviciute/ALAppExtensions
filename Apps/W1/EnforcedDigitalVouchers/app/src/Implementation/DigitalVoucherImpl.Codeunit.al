@@ -4,6 +4,7 @@
 // ------------------------------------------------------------------------------------------------
 namespace Microsoft.EServices.EDocument;
 
+using Microsoft.EServices.EDocument;
 using Microsoft.Finance.GeneralLedger.Journal;
 using Microsoft.Finance.GeneralLedger.Ledger;
 using Microsoft.Finance.GeneralLedger.Posting;
@@ -759,6 +760,10 @@ codeunit 5579 "Digital Voucher Impl."
         DigitalVoucherEntrySetup: Record "Digital Voucher Entry Setup";
         RecRef: RecordRef;
         VoucherEDocumentCheck: Codeunit "Voucher E-Document Check";
+        DigitalVoucherEntry: Codeunit "Digital Voucher Entry";
+        DocType: Text;
+        DocNo: Code[20];
+        PostingDate: Date;
     begin
         if not DigitalVoucherFeature.IsFeatureEnabled() then
             exit;
@@ -776,18 +781,8 @@ codeunit 5579 "Digital Voucher Impl."
             exit;
 
         RecRef.GetTable(PostedRecord);
-        case DocumentType of
-            DocumentType::"Purchase Invoice":
-                begin
-                    RecRef.SetTable(PurchInvHeader);
-                    VoucherEDocumentCheck.AttachToIncomingDocument(EDocument, PurchInvHeader."No.", PurchInvHeader."Posting Date");
-                end;
-            DocumentType::"Purchase Credit Memo":
-                begin
-                    RecRef.SetTable(PurchCrMemoHdr);
-                    VoucherEDocumentCheck.AttachToIncomingDocument(EDocument, PurchCrMemoHdr."No.", PurchCrMemoHdr."Posting Date");
-                end;
-        end;
+        DigitalVoucherEntry.GetDocNoAndPostingDateFromRecRef(DocType, DocNo, PostingDate, RecRef);
+        VoucherEDocumentCheck.AttachEDocument(EDocument, DocNo, PostingDate);
     end;
 
     [IntegrationEvent(false, false)]

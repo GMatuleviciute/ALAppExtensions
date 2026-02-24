@@ -4,6 +4,7 @@
 // ------------------------------------------------------------------------------------------------
 namespace Microsoft.EServices.EDocument;
 
+using Microsoft.Purchases.Document;
 using Microsoft.Purchases.History;
 using System.IO;
 using System.Utilities;
@@ -12,32 +13,45 @@ codeunit 5588 "Voucher E-Document Check" implements "Digital Voucher Check"
 {
     Access = Internal;
 
+    /// <summary>
+    /// Validates that an E-Document is attached to the document before posting.
+    /// Only applies to Purchase Documents when the Digital Voucher feature is enabled and Check Type is set to E-Document.
+    /// </summary>
+    /// <param name="ErrorMessageMgt">Error message management for logging validation errors</param>
+    /// <param name="DigitalVoucherEntryType">The type of digital voucher entry being validated</param>
+    /// <param name="RecRef">Record reference to the document being validated</param>
     internal procedure CheckVoucherIsAttachedToDocument(var ErrorMessageMgt: Codeunit "Error Message Management"; DigitalVoucherEntryType: Enum "Digital Voucher Entry Type"; RecRef: RecordRef)
     var
+        DigitalVoucherEntrySetup: Record "Digital Voucher Entry Setup";
         EDocument: Record "E-Document";
-        EDocumentLinkGuid: Guid;
+        PurchaseHeader: Record "Purchase Header";
+        DigitalVoucherFeature: Codeunit "Digital Voucher Feature";
+        DigitalVoucherImpl: Codeunit "Digital Voucher Impl.";
         NotPossibleToPostWithoutEDocumentErr: Label 'Not possible to post without linking an E-Document.';
     begin
-        if DigitalVoucherEntryType = DigitalVoucherEntryType::"Sales Document" then
-            exit;
-
         if DigitalVoucherEntryType <> DigitalVoucherEntryType::"Purchase Document" then
             exit;
 
-        EDocumentLinkGuid := GetEDocumentLinkFromPurchaseHeader(RecRef);
+        if not DigitalVoucherFeature.IsFeatureEnabled() then
+            exit;
 
-        if IsNullGuid(EDocumentLinkGuid) then begin
+        DigitalVoucherImpl.GetDigitalVoucherEntrySetup(DigitalVoucherEntrySetup, DigitalVoucherEntryType);
+        if DigitalVoucherEntrySetup."Check Type" <> DigitalVoucherEntrySetup."Check Type"::"E-Document" then
+            exit;
+
+        EDocument.SetRange("Document Record ID", RecRef.RecordId());
+        if not EDocument.FindFirst() then begin
             ErrorMessageMgt.LogSimpleErrorMessage(NotPossibleToPostWithoutEDocumentErr);
             exit;
         end;
-
-        EDocument.SetRange(SystemId, EDocumentLinkGuid);
-        if EDocument.FindFirst() then
-            exit;
-
-        ErrorMessageMgt.LogSimpleErrorMessage(NotPossibleToPostWithoutEDocumentErr);
     end;
 
+    /// <summary>
+    /// Generates a digital voucher for a posted document by delegating to the Attachment check type implementation.
+    /// This procedure retrieves the digital voucher entry setup and invokes the attachment-based voucher generation.
+    /// </summary>
+    /// <param name="DigitalVoucherEntryType">The type of digital voucher entry for the posted document</param>
+    /// <param name="RecRef">Record reference to the posted document</param>
     internal procedure GenerateDigitalVoucherForPostedDocument(DigitalVoucherEntryType: Enum "Digital Voucher Entry Type"; RecRef: RecordRef)
     var
         DigitalVoucherEntrySetup: Record "Digital Voucher Entry Setup";
@@ -52,28 +66,16 @@ codeunit 5588 "Voucher E-Document Check" implements "Digital Voucher Check"
         DigitalVoucherCheck.GenerateDigitalVoucherForPostedDocument(DigitalVoucherEntrySetup."Entry Type", RecRef);
     end;
 
-    local procedure GetEDocumentLinkFromPurchaseHeader(RecRef: RecordRef): Guid
-    var
-        EDocumentLinkFieldRef: FieldRef;
-        NullGuid: Guid;
-        FieldIndex: Integer;
-    begin
-        for FieldIndex := 1 to RecRef.FieldCount do begin
-            EDocumentLinkFieldRef := RecRef.FieldIndex(FieldIndex);
-            if EDocumentLinkFieldRef.Name = 'E-Document Link' then
-                exit(EDocumentLinkFieldRef.Value());
-        end;
-        exit(NullGuid);
-    end;
-
     /// <summary>
     /// Attaches the original E-Document file to the Incoming Document of a Purchase Header.
     /// Creates an Incoming Document Attachment and links it to the Purchase Header.
+    /// If the E-Document is a PDF with embedded XML, also extracts and attaches the XML content.
+    /// Only processes Purchase Invoice, Credit Memo, Order, Quote, and Return Order document types.
     /// </summary>
-    /// <param name="EDocument">The E-Document containing the file to attach</param>
+    /// <param name="EDocument">The E-Document record containing the file to attach</param>
     /// <param name="DocumentNo">The document number to attach the incoming document to</param>
     /// <param name="PostingDate">The posting date of the document</param>
-    internal procedure AttachToIncomingDocument(EDocument: Record "E-Document"; DocumentNo: Code[20]; PostingDate: Date)
+    internal procedure AttachEDocument(EDocument: Record "E-Document"; DocumentNo: Code[20]; PostingDate: Date)
     var
         EDocDataStorage: Record "E-Doc. Data Storage";
         IncomingDocumentAttachment: Record "Incoming Document Attachment";
