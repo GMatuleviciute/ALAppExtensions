@@ -273,14 +273,22 @@ codeunit 5579 "Digital Voucher Impl."
     /// <param name="EDocument">The E-Document being exported</param>
     /// <param name="SourceDocumentHeader">The source document (e.g., Sales Invoice Header)</param>
     /// <param name="TempBlob">The blob containing the exported E-Document content</param>
-    internal procedure AttachIncomingDocumentOnExport(EDocument: Record "E-Document"; SourceDocumentHeader: RecordRef; var TempBlob: Codeunit "Temp Blob")
+    internal procedure AttachIncomingEDocument(EDocument: Record "E-Document"; SourceDocumentHeader: RecordRef; var TempBlob: Codeunit "Temp Blob")
     var
         IncomingDocumentAttachment: Record "Incoming Document Attachment";
+        DigitalVoucherEntrySetup: Record "Digital Voucher Entry Setup";
         ImportAttachmentIncDoc: Codeunit "Import Attachment - Inc. Doc.";
         EDocumentHelper: Codeunit "E-Document Processing";
         RecordLinkTxt: Text;
         FileNameTok: Label 'E-Document_%1.xml', Locked = true;
     begin
+        if not DigitalVoucherFeature.IsFeatureEnabled() then
+            exit;
+
+        GetDigitalVoucherEntrySetup(DigitalVoucherEntrySetup, "Digital Voucher Entry Type"::"Sales Document");
+        if DigitalVoucherEntrySetup."Check Type" <> DigitalVoucherEntrySetup."Check Type"::"E-Document" then
+            exit;
+
         if not (EDocument."Document Type" in [
             EDocument."Document Type"::"Sales Invoice",
             EDocument."Document Type"::"Sales Credit Memo",
@@ -739,23 +747,47 @@ codeunit 5579 "Digital Voucher Impl."
     begin
         if not Success then
             exit;
-            
-        AttachIncomingDocumentOnExport(EDocument, SourceDocumentHeaderMapped, TempBlob);
+
+        AttachIncomingEDocument(EDocument, SourceDocumentHeaderMapped, TempBlob);
     end;
 
     [EventSubscriber(ObjectType::Codeunit, Codeunit::"E-Document Subscribers", OnAfterUpdateToPostedPurchaseEDocument, '', false, false)]
     local procedure EDocumentSubscribers_OnAfterUpdateToPostedPurchaseEDocument(var EDocument: Record "E-Document"; PostedRecord: Variant; DocumentType: Enum "E-Document Type")
     var
         PurchInvHeader: Record "Purch. Inv. Header";
+        PurchCrMemoHdr: Record "Purch. Cr. Memo Hdr.";
+        DigitalVoucherEntrySetup: Record "Digital Voucher Entry Setup";
         RecRef: RecordRef;
         VoucherEDocumentCheck: Codeunit "Voucher E-Document Check";
     begin
-        if DocumentType <> DocumentType::"Purchase Invoice" then
+        if not DigitalVoucherFeature.IsFeatureEnabled() then
+            exit;
+
+        GetDigitalVoucherEntrySetup(DigitalVoucherEntrySetup, "Digital Voucher Entry Type"::"Purchase Document");
+        if DigitalVoucherEntrySetup."Check Type" <> DigitalVoucherEntrySetup."Check Type"::"E-Document" then
+            exit;
+
+        if not (EDocument."Document Type" in [
+            EDocument."Document Type"::"Purchase Invoice",
+            EDocument."Document Type"::"Purchase Credit Memo",
+            EDocument."Document Type"::"Purchase Order",
+            EDocument."Document Type"::"Purchase Quote",
+            EDocument."Document Type"::"Purchase Return Order"]) then
             exit;
 
         RecRef.GetTable(PostedRecord);
-        RecRef.SetTable(PurchInvHeader);
-        VoucherEDocumentCheck.AttachToIncomingDocument(EDocument, PurchInvHeader."No.", PurchInvHeader."Posting Date");
+        case DocumentType of
+            DocumentType::"Purchase Invoice":
+                begin
+                    RecRef.SetTable(PurchInvHeader);
+                    VoucherEDocumentCheck.AttachToIncomingDocument(EDocument, PurchInvHeader."No.", PurchInvHeader."Posting Date");
+                end;
+            DocumentType::"Purchase Credit Memo":
+                begin
+                    RecRef.SetTable(PurchCrMemoHdr);
+                    VoucherEDocumentCheck.AttachToIncomingDocument(EDocument, PurchCrMemoHdr."No.", PurchCrMemoHdr."Posting Date");
+                end;
+        end;
     end;
 
     [IntegrationEvent(false, false)]
