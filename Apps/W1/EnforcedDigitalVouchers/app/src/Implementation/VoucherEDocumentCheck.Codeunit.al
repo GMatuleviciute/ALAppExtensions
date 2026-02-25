@@ -24,7 +24,6 @@ codeunit 5588 "Voucher E-Document Check" implements "Digital Voucher Check"
     var
         DigitalVoucherEntrySetup: Record "Digital Voucher Entry Setup";
         EDocument: Record "E-Document";
-        PurchaseHeader: Record "Purchase Header";
         DigitalVoucherFeature: Codeunit "Digital Voucher Feature";
         DigitalVoucherImpl: Codeunit "Digital Voucher Impl.";
         NotPossibleToPostWithoutEDocumentErr: Label 'Not possible to post without linking an E-Document.';
@@ -40,7 +39,7 @@ codeunit 5588 "Voucher E-Document Check" implements "Digital Voucher Check"
             exit;
 
         EDocument.SetRange("Document Record ID", RecRef.RecordId());
-        if not EDocument.FindFirst() then begin
+        if EDocument.IsEmpty() then begin
             ErrorMessageMgt.LogSimpleErrorMessage(NotPossibleToPostWithoutEDocumentErr);
             exit;
         end;
@@ -55,9 +54,6 @@ codeunit 5588 "Voucher E-Document Check" implements "Digital Voucher Check"
     internal procedure GenerateDigitalVoucherForPostedDocument(DigitalVoucherEntryType: Enum "Digital Voucher Entry Type"; RecRef: RecordRef)
     var
         DigitalVoucherEntrySetup: Record "Digital Voucher Entry Setup";
-        PurchInvHeader: Record "Purch. Inv. Header";
-        PurchCrMemoHeader: Record "Purch. Cr. Memo Hdr.";
-        EDocument: Record "E-Document";
         DigitalVoucherImpl: Codeunit "Digital Voucher Impl.";
         DigitalVoucherCheck: Interface "Digital Voucher Check";
     begin
@@ -79,10 +75,9 @@ codeunit 5588 "Voucher E-Document Check" implements "Digital Voucher Check"
     var
         EDocDataStorage: Record "E-Doc. Data Storage";
         IncomingDocumentAttachment: Record "Incoming Document Attachment";
-        EDocumentService: Record "E-Document Service";
         ImportAttachmentIncDoc: Codeunit "Import Attachment - Inc. Doc.";
         TempBlob: Codeunit "Temp Blob";
-        FileName: Text;
+        FileName: Text[250];
         EDocumentFileNameLbl: Label 'E-Document_%1.%2', Comment = '%1 = E-Document Entry No., %2 = File Format', Locked = true;
     begin
         if not (EDocument."Document Type" in [
@@ -93,7 +88,6 @@ codeunit 5588 "Voucher E-Document Check" implements "Digital Voucher Check"
             EDocument."Document Type"::"Purchase Return Order"]) then
             exit;
 
-        EDocumentService.Get(EDocument.Service);
         if EDocument."Unstructured Data Entry No." = 0 then
             exit;
 
@@ -105,7 +99,7 @@ codeunit 5588 "Voucher E-Document Check" implements "Digital Voucher Check"
             exit;
 
         if EDocument."File Name" <> '' then
-            FileName := EDocument."File Name"
+            FileName := CopyStr(EDocument."File Name",1,MaxStrLen(FileName))
         else
             FileName := StrSubstNo(EDocumentFileNameLbl, EDocument."Entry No", EDocDataStorage."File Format");
 
@@ -125,7 +119,7 @@ codeunit 5588 "Voucher E-Document Check" implements "Digital Voucher Check"
         end;
     end;
 
-    local procedure ExtractXMLFromPDF(var TempBlob: Codeunit System.Utilities."Temp Blob"; FileName: Text; var IncomingDocumentAttachment: Record "Incoming Document Attachment")
+    local procedure ExtractXMLFromPDF(var TempBlob: Codeunit System.Utilities."Temp Blob"; FileName: Text[250]; var IncomingDocumentAttachment: Record "Incoming Document Attachment")
     var
         PDFDocument: Codeunit "PDF Document";
         ImportAttachmentIncDoc: Codeunit "Import Attachment - Inc. Doc.";

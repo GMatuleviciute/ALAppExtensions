@@ -4,7 +4,6 @@
 // ------------------------------------------------------------------------------------------------
 namespace Microsoft.EServices.EDocument;
 
-using Microsoft.EServices.EDocument;
 using Microsoft.Finance.GeneralLedger.Journal;
 using Microsoft.Finance.GeneralLedger.Ledger;
 using Microsoft.Finance.GeneralLedger.Posting;
@@ -755,12 +754,9 @@ codeunit 5579 "Digital Voucher Impl."
     [EventSubscriber(ObjectType::Codeunit, Codeunit::"E-Document Subscribers", OnAfterUpdateToPostedPurchaseEDocument, '', false, false)]
     local procedure EDocumentSubscribers_OnAfterUpdateToPostedPurchaseEDocument(var EDocument: Record "E-Document"; PostedRecord: Variant; DocumentType: Enum "E-Document Type")
     var
-        PurchInvHeader: Record "Purch. Inv. Header";
-        PurchCrMemoHdr: Record "Purch. Cr. Memo Hdr.";
         DigitalVoucherEntrySetup: Record "Digital Voucher Entry Setup";
-        RecRef: RecordRef;
         VoucherEDocumentCheck: Codeunit "Voucher E-Document Check";
-        DigitalVoucherEntry: Codeunit "Digital Voucher Entry";
+        RecRef: RecordRef;
         DocType: Text;
         DocNo: Code[20];
         PostingDate: Date;
