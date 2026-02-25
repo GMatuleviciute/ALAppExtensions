@@ -246,7 +246,7 @@ codeunit 5579 "Digital Voucher Impl."
             exit;
         DataTypeManagement.GetRecordRef(RelatedRecord, RecRef);
         if DigitalVoucherFeature.IsDigitalVoucherEnabledForTableNumber(RecRef.Number) then
-            error(CannotChangeIncomDocWithEnforcedDigitalVoucherErr);
+            Error(CannotChangeIncomDocWithEnforcedDigitalVoucherErr);
     end;
 
     procedure GetDigitalVoucherEntrySetup(var DigitalVoucherEntrySetup: Record "Digital Voucher Entry Setup"; EntryType: Enum "Digital Voucher Entry Type"): Boolean
@@ -264,6 +264,48 @@ codeunit 5579 "Digital Voucher Impl."
         if not FilterIncomingDocumentRecordFromRecordRef(IncomingDocumentAttachment, IncomingDocument, MainRecordRef) then
             exit(false);
         exit(not IncomingDocumentAttachment.IsEmpty());
+    end;
+
+    /// <summary>
+    /// Attaches the exported E-Document XML file as an Incoming Document Attachment to the source document.
+    /// Only attaches for Sales Invoice Header when the "Attach Sales E-Document" setting is enabled.
+    /// </summary>
+    /// <param name="EDocument">The E-Document being exported</param>
+    /// <param name="SourceDocumentHeader">The source document (e.g., Sales Invoice Header)</param>
+    /// <param name="TempBlob">The blob containing the exported E-Document content</param>
+    internal procedure AttachIncomingEDocument(EDocument: Record "E-Document"; SourceDocumentHeader: RecordRef; var TempBlob: Codeunit "Temp Blob")
+    var
+        IncomingDocumentAttachment: Record "Incoming Document Attachment";
+        DigitalVoucherEntrySetup: Record "Digital Voucher Entry Setup";
+        ImportAttachmentIncDoc: Codeunit "Import Attachment - Inc. Doc.";
+        EDocumentHelper: Codeunit "E-Document Processing";
+        RecordLinkTxt: Text;
+        FileNameTok: Label 'E-Document_%1.xml', Locked = true;
+    begin
+        if not DigitalVoucherFeature.IsFeatureEnabled() then
+            exit;
+
+        GetDigitalVoucherEntrySetup(DigitalVoucherEntrySetup, "Digital Voucher Entry Type"::"Sales Document");
+        if DigitalVoucherEntrySetup."Check Type" <> DigitalVoucherEntrySetup."Check Type"::"E-Document" then
+            exit;
+
+        if not (EDocument."Document Type" in [
+            EDocument."Document Type"::"Sales Invoice",
+            EDocument."Document Type"::"Sales Credit Memo",
+            EDocument."Document Type"::"Sales Order",
+            EDocument."Document Type"::"Sales Quote",
+            EDocument."Document Type"::"Sales Return Order"]) then
+            exit;
+
+        RecordLinkTxt := EDocumentHelper.GetRecordLinkText(EDocument);
+        IncomingDocumentAttachment.SetRange("Document No.", EDocument."Document No.");
+        IncomingDocumentAttachment.SetRange("Posting Date", EDocument."Posting Date");
+        IncomingDocumentAttachment.SetContentFromBlob(TempBlob);
+        if not ImportAttachmentIncDoc.ImportAttachment(IncomingDocumentAttachment, StrSubstNo(FileNameTok, RecordLinkTxt), TempBlob) then
+            exit;
+
+        IncomingDocumentAttachment."Is E-Document" := true;
+        IncomingDocumentAttachment.Modify(false);
     end;
 
     local procedure FilterIncomingDocumentRecordFromRecordRef(var IncomingDocumentAttachment: Record "Incoming Document Attachment"; var IncomingDocument: Record "Incoming Document"; MainRecordRef: RecordRef): Boolean
@@ -677,6 +719,7 @@ codeunit 5579 "Digital Voucher Impl."
     local procedure ExcludeDigitalVouchersOnAttachIncomingDocumentsOnAfterSetFilter(var IncomingDocumentAttachment: Record "Incoming Document Attachment")
     begin
         IncomingDocumentAttachment.SetRange("Is Digital Voucher", false);
+        IncomingDocumentAttachment.SetRange("Is E-Document", false);
     end;
 
     [EventSubscriber(ObjectType::Table, Database::"Digital Voucher Setup", 'OnBeforeDeleteEvent', '', false, false)]
@@ -697,6 +740,45 @@ codeunit 5579 "Digital Voucher Impl."
     begin
         SalesHeader."Incoming Document Entry No." :=
             CopyDigitalVoucherToCorrectiveDocument("Digital Voucher Entry Type"::"Sales Document", SalesInvoiceHeader, SalesHeader."No.", SalesHeader."Posting Date");
+    end;
+
+    [EventSubscriber(ObjectType::Codeunit, Codeunit::"E-Doc. Export", OnExportEDocumentAfterCreateEDocument, '', false, false)]
+    local procedure EDocExportOnExportEDocumentAfterCreateEDocument(EDocument: Record "E-Document"; SourceDocumentHeaderMapped: RecordRef; SourceDocumentLineMapped: RecordRef; var TempBlob: Codeunit "Temp Blob"; Success: Boolean)
+    begin
+        if not Success then
+            exit;
+
+        AttachIncomingEDocument(EDocument, SourceDocumentHeaderMapped, TempBlob);
+    end;
+
+    [EventSubscriber(ObjectType::Codeunit, Codeunit::"E-Document Subscribers", OnAfterUpdateToPostedPurchaseEDocument, '', false, false)]
+    local procedure EDocumentSubscribers_OnAfterUpdateToPostedPurchaseEDocument(var EDocument: Record "E-Document"; PostedRecord: Variant; DocumentType: Enum "E-Document Type")
+    var
+        DigitalVoucherEntrySetup: Record "Digital Voucher Entry Setup";
+        VoucherEDocumentCheck: Codeunit "Voucher E-Document Check";
+        RecRef: RecordRef;
+        DocType: Text;
+        DocNo: Code[20];
+        PostingDate: Date;
+    begin
+        if not DigitalVoucherFeature.IsFeatureEnabled() then
+            exit;
+
+        GetDigitalVoucherEntrySetup(DigitalVoucherEntrySetup, "Digital Voucher Entry Type"::"Purchase Document");
+        if DigitalVoucherEntrySetup."Check Type" <> DigitalVoucherEntrySetup."Check Type"::"E-Document" then
+            exit;
+
+        if not (EDocument."Document Type" in [
+            EDocument."Document Type"::"Purchase Invoice",
+            EDocument."Document Type"::"Purchase Credit Memo",
+            EDocument."Document Type"::"Purchase Order",
+            EDocument."Document Type"::"Purchase Quote",
+            EDocument."Document Type"::"Purchase Return Order"]) then
+            exit;
+
+        RecRef.GetTable(PostedRecord);
+        DigitalVoucherEntry.GetDocNoAndPostingDateFromRecRef(DocType, DocNo, PostingDate, RecRef);
+        VoucherEDocumentCheck.AttachEDocument(EDocument, DocNo, PostingDate);
     end;
 
     [IntegrationEvent(false, false)]

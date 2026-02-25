@@ -23,16 +23,26 @@ page 5579 "Digital Voucher Entry Setup"
                 field("Entry Type"; Rec."Entry Type")
                 {
                     ToolTip = 'Specifies the entry type.';
+                    trigger OnValidate()
+                    begin
+                        UpdateGenerateAutomaticallyEditable();
+                    end;
                 }
                 field("Check Type"; Rec."Check Type")
                 {
                     ToolTip = 'Specifies the check type.';
                     AboutTitle = 'Enter the check type';
                     AboutText = 'In case of check type None you can post this type of entry without any digital voucher. In case of check type Attachment you need to have an attachment to your entry. In case of check type Attachment or Note you can either have an attachment or a note for your entry.';
+
+                    trigger OnValidate()
+                    begin
+                        UpdateGenerateAutomaticallyEditable();
+                    end;
                 }
                 field("Generate Automatically"; Rec."Generate Automatically")
                 {
                     ToolTip = 'Specifies if the digital voucher needs to be generated automatically.';
+                    Editable = GenerateAutomaticallyEditable;
                 }
                 field("Skip If Manually Added"; Rec."Skip If Manually Added")
                 {
@@ -89,6 +99,7 @@ page 5579 "Digital Voucher Entry Setup"
 
     var
         OpenedFromWizard: Boolean;
+        GenerateAutomaticallyEditable: Boolean;
         VoucherEntryTypeDescription: Text;
         GeneralJournalEntryDescriptionTxt: Label 'Specifies postings you are doing from the General Journal for all Account Types excluding those related to Customer and Vendor. By choosing one of those options, you will change control of the posting process. If you select the Customer as the Account Type, the system will check your setup related to the Sales Journal. If you select the Vendor as the Account Type, the system will check your setup related to the Purchase Journal.';
         SalesJournalEntryDescriptionTxt: Label 'Specifies posting you are doing from the Sales Journal and the General Journal with the Customer selected as the Account Type.';
@@ -107,11 +118,13 @@ page 5579 "Digital Voucher Entry Setup"
     trigger OnAfterGetRecord()
     begin
         SetVoucherEntryTypeDescription();
+        UpdateGenerateAutomaticallyEditable();
     end;
 
     trigger OnAfterGetCurrRecord()
     begin
         SetVoucherEntryTypeDescription();
+        UpdateGenerateAutomaticallyEditable();
     end;
 
     procedure SetOpenFromGuide()
@@ -140,6 +153,11 @@ page 5579 "Digital Voucher Entry Setup"
             else
                 VoucherEntryTypeDescription := '';
         end;
+    end;
+
+    local procedure UpdateGenerateAutomaticallyEditable()
+    begin
+        GenerateAutomaticallyEditable := Rec."Check Type" <> Rec."Check Type"::"E-Document";
     end;
 
     [IntegrationEvent(false, false)]
